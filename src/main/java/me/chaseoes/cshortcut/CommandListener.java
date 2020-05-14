@@ -10,6 +10,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
 import com.google.common.base.Joiner;
+import org.bukkit.event.server.ServerCommandEvent;
 
 public class CommandListener implements Listener {
 
@@ -64,6 +65,34 @@ public class CommandListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onServerCommand(ServerCommandEvent event) {
+        String args[] = event.getCommand().split(" ");
+        // Loop through all defined commands in the configuration.
+        for (String commandToCheck : plugin.getConfig().getConfigurationSection("commands").getKeys(false)) {
+            // Check if the command we're currently looping through matches the
+            // one the player typed.
+            if (commandToCheck.equalsIgnoreCase(args[0])) {
+                // Loop through all commands in the string list.
+                List<String> commands = plugin.getConfig().getStringList("commands." + args[0] + ".commands");
+                for (String com : commands) {
+                    // Replace variables...
+                    for (int i = 1; i < args.length; i++) {
+                        com = com.replace("%" + i, args[i]);
+                    }
+
+                    com = com.replace("%0", Joiner.on(" ").join(args).replace(args[0] + " ", "")).replace("%name", "[Console]").replace("%displayname", "[Console]");
+                    String command = ChatColor.translateAlternateColorCodes('&', com);
+
+                    // Execute commands.
+                    doCommand(null, command);
+                }
+
+                event.setCancelled(true);
+            }
+        }
+    }
+
     public void doCommand(final Player player, String com) {
         if (com.startsWith("%delay-")) {
             String del = com.split("\\ ")[0];
@@ -74,11 +103,19 @@ public class CommandListener implements Listener {
                 @Override
                 public void run() {
                     if (command.startsWith("/")) {
-                        player.performCommand(command.substring(1));
+                        if (player != null) {
+                            player.performCommand(command.substring(1));
+                        } else {
+                            plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command.substring(1));
+                        }
                     } else if (command.contains("%console ")) {
                         plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command.replace("%console ", ""));
                     } else if (command.contains("%message ")) {
-                        player.sendMessage(command.replace("%message ", ""));
+                        if (player != null) {
+                            player.sendMessage(command.replace("%message ", ""));
+                        } else {
+                            plugin.getServer().getConsoleSender().sendMessage(command.replace("%message ", ""));
+                        }
                     } else if (command.contains("%broadcast ")) {
                         plugin.getServer().broadcastMessage(command.replace("%broadcast ", ""));
                     }
@@ -87,11 +124,19 @@ public class CommandListener implements Listener {
         } else {
             String command = com;
             if (command.startsWith("/")) {
-                player.performCommand(command.substring(1));
+                if (player != null) {
+                    player.performCommand(command.substring(1));
+                } else {
+                    plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command.substring(1));
+                }
             } else if (command.contains("%console ")) {
                 plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command.replace("%console ", ""));
             } else if (command.contains("%message ")) {
-                player.sendMessage(command.replace("%message ", ""));
+                if (player != null) {
+                    player.sendMessage(command.replace("%message ", ""));
+                } else {
+                    plugin.getServer().getConsoleSender().sendMessage(command.replace("%message ", ""));
+                }
             } else if (command.contains("%broadcast ")) {
                 plugin.getServer().broadcastMessage(command.replace("%broadcast ", ""));
             }
